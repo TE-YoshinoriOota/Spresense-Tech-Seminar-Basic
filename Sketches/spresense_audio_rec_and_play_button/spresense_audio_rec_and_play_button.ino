@@ -87,6 +87,8 @@ void player_end() {
   Serial.println("End play");
   theAudio->setReadyMode();
   theAudio->end();
+  // theSD.remove(filename);
+  // Serial.println(String(filename) + " removed");
   bPlayStart = false;
 }
 
@@ -127,10 +129,9 @@ int intPin = 0;
 void setup() {
   int err;
   Serial.begin(115200);
+  theSD.begin();
   pinMode(intPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(intPin) ,changeState ,FALLING);
-
-  //theAudio->begin();
 
 }
 
