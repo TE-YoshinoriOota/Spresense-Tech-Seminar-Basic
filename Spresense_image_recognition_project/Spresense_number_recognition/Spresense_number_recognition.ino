@@ -84,7 +84,7 @@ void CamCB(CamImage img) {
   Serial.println("start clip and resize");
   gStrResult = "";
   int i ,j;
-  for (i = 0, j = NUM_OF_BOX; i < NUM_OF_BOX; ++i, --j) {
+  for (i = 0; i < NUM_OF_BOX; ++i) {
     Serial.println("clip: " + String(i));
     CamImage small;
     CamErr camErr = img.clipAndResizeImageByHW(small
@@ -101,8 +101,8 @@ void CamCB(CamImage img) {
     uint8_t label[11] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     
     float* input_buffer = input.data();
-    for (int i = 0; i < DNN_IMG_WIDTH * DNN_IMG_HEIGHT; ++i, ++buf) {
-      input_buffer[i] = (float)(((*buf & 0x07E0) >> 5) << 2) ; // extract green
+    for (j = 0; j < DNN_IMG_WIDTH * DNN_IMG_HEIGHT; ++j, ++buf) {
+      input_buffer[j] = (float)(((*buf & 0x07E0) >> 5) << 2) ; // extract green
     }
 
     Serial.println("DNN forward");
@@ -110,10 +110,10 @@ void CamCB(CamImage img) {
     dnnrt.forward();
     DNNVariable output = dnnrt.outputVariable(0);
     float max_value = 0.0;
-    for (int i = 0; output.size() > i; ++i) {
-      if (output[i] > max_value) {
-        max_value = output[i];
-        index = i;
+    for (j = 0; output.size() > j; ++j) {
+      if (output[j] > max_value) {
+        max_value = output[j];
+        index = j;
       }
     }
     
