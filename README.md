@@ -3,6 +3,6 @@ This is a repository for Spresense Technical Seminar Basic
 
 The licensens of the contents:
 
-Source codes are under LGPL V2.1
+- Source codes are under LGPL V2.1
 
-The text and the dataset for the neural network console are CC-BY-SA 
+- The textbook and the datasets for the neural network console are CC-BY-SA 
