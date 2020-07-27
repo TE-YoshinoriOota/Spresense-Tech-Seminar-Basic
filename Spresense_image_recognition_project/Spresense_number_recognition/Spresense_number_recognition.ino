@@ -101,8 +101,14 @@ void CamCB(CamImage img) {
     uint8_t label[11] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     
     float* input_buffer = input.data();
+    float f_max = 0.0;
     for (j = 0; j < DNN_IMG_WIDTH * DNN_IMG_HEIGHT; ++j, ++buf) {
       input_buffer[j] = (float)(((*buf & 0x07E0) >> 5) << 2) ; // extract green
+      if (input_buffer[j] > f_max) f_max = input_buffer[j];
+    }
+    /* normalization */
+    for (j = 0; j < DNN_IMG_WIDTH * DNN_IMG_HEIGHT; ++j) {
+      input_buffer[j] /= f_max;
     }
 
     Serial.println("DNN forward");
