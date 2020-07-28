@@ -115,13 +115,7 @@ void CamCB(CamImage img) {
     dnnrt.inputVariable(input, 0);
     dnnrt.forward();
     DNNVariable output = dnnrt.outputVariable(0);
-    float max_value = 0.0;
-    for (j = 0; output.size() > j; ++j) {
-      if (output[j] > max_value) {
-        max_value = output[j];
-        index = j;
-      }
-    }
+    index = output.maxIndex();
     
     Serial.print("Result : ");
     Serial.println(label[index] + "  (" + String(output[index]) + ")");
