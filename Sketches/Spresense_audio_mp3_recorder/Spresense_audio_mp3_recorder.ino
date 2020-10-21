@@ -31,7 +31,8 @@ int gCounter = 0;
 File myFile;
 
 void changeState() {    // interrupt handler
-  bStart = ~bStart;
+  bStart = bStart ? false : true;
+  // bStart = ~bStart;
 }
 
 void recorder_end() {
