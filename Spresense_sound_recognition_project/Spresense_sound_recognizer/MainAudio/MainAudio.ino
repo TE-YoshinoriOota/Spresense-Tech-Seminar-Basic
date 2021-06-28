@@ -1,77 +1,48 @@
-/*
- *  MainAudio.ino - Sound recognition example
- *  Copyright 2020 Sony Semiconductor Solutions Corporation
- *
- *  This library is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU Lesser General Public
- *  License as published by the Free Software Foundation; either
- *  version 2.1 of the License, or (at your option) any later version.
- *
- *  This library is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *  Lesser General Public License for more details.
- *
- *  You should have received a copy of the GNU Lesser General Public
- *  License along with this library; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- */
-
 #ifdef SUBCORE
 #error "Core selection is wrong!!"
 #endif
 
-#include <MP.h>
 #include <Audio.h>
-#include <float.h>
-
-
-#define SND_AUD 100
-#define REQ_FFT 119
-#define ACK_FFT  99
-#define BEG_REC   9
-#define END_REC  19
-
-#include <SDHCI.h>
-SDClass theSD;
-
-#define DNNENABLE
-#ifdef DNNENABLE
+#include <FFT.h>
+#include <MP.h>
+#include <MPMutex.h>
 #include <DNNRT.h>
+#include <SDHCI.h>
+
+#define FFT_LEN 1024
+
+SDClass theSD;
 DNNRT dnnrt;
-#endif
+DNNVariable input(FFT_LEN/2); 
 
-#define HAVE_LCD
-#ifdef HAVE_LCD
+MPMutex mutex(MP_MUTEX_ID0);
 
-#endif
+FFTClass<AS_CHANNEL_MONO, FFT_LEN> FFT;
 
 AudioClass *theAudio = AudioClass::getInstance();
-static const int32_t buffer_sample = 1024;
-static const int32_t buffer_size = buffer_sample * sizeof(int16_t);
-static char buff[buffer_size];
-uint32_t read_size;
 
 const int subcore = 1;
-static int g_loop = 0;
-
-#define MAXLOOP 200
+const float maxSpectrum = 1.5;
 
 static const char* const labels[5] = {"no audio", "1000Hz", "300Hz", "3000Hz", "500Hz"};
- 
 
-void setup()
-{
+struct Spectrum {
+  void* data;
+  int index;
+  float value;
+};
+
+void setup() {
   Serial.begin(115200);
-  theSD.begin();
+  while (!theSD.begin() ) { Serial.println("Insert SD card"); };
+  FFT.begin(WindowHamming, AS_CHANNEL_MONO, FFT_LEN/2);
 
-#ifdef HAVE_LCD
-  setupLcd();
-#endif
- 
+  Serial.println("Subcore start");
+  MP.begin(subcore);
+
   Serial.println("Init Audio Recorder");
   theAudio->begin();
-  theAudio->setRecorderMode(AS_SETRECDR_STS_INPUTDEVICE_MIC, 200);
+  theAudio->setRecorderMode(AS_SETRECDR_STS_INPUTDEVICE_MIC);
   int err = theAudio->initRecorder(AS_CODECTYPE_PCM ,"/mnt/sd0/BIN" 
                            ,AS_SAMPLINGRATE_48000 ,AS_CHANNEL_MONO);                             
   if (err != AUDIOLIB_ECODE_OK) {
@@ -79,10 +50,7 @@ void setup()
     while(1);
   }
 
-  MP.begin(subcore);
-  MP.RecvTimeout(MP_RECV_POLLING); 
-
-#ifdef DNNENABLE
+  Serial.println("Initialize DNNRT");
   File nnbfile("model.nnb");
   if (!nnbfile) {
     Serial.print("nnb not found");
@@ -92,75 +60,66 @@ void setup()
   int ret = dnnrt.begin(nnbfile);
   if (ret < 0) {
     Serial.print("DNN Runtime begin fail: " + String(ret));
-    if (ret == -16) {
-      Serial.println("Please update bootloader!");
-    } else {
-      Serial.println(ret);
-    }
     while(1);
   }
-#endif
 
+  Serial.println("Start Recorder");
   theAudio->startRecorder(); 
-  Serial.println("Start Recording");
-  task_create("audio recording", 200, 1024, audioReadFrames, NULL);
+  usleep(1);
 }
 
-void audioReadFrames() {
+
+void loop(){
+  static const uint32_t buffering_time = FFT_LEN*1000/AS_SAMPLINGRATE_48000;
+  static const uint32_t buffer_size = FFT_LEN*sizeof(int16_t);
+  static char buff[buffer_size];
+  static float pDst[FFT_LEN];
+  static uint32_t last_time = 0;
+  uint32_t read_size; 
   
-  while (1) {
-    int err = theAudio->readFrames(buff, buffer_size, &read_size);
-    if (err != AUDIOLIB_ECODE_OK && err != AUDIOLIB_ECODE_INSUFFICIENT_BUFFER_AREA) {
-      Serial.println("Error err = " + String(err));
-      theAudio->stopRecorder();
-      exit(1);
-    }
-    
-    int8_t sndid = SND_AUD; /* user-defined msgid */
-    if ((read_size != 0) && (read_size == buffer_size)) {
-      MP.Send(sndid, &buff, subcore);
-    } else {
-      usleep(1);
-    }
+  
+  int ret = theAudio->readFrames(buff, buffer_size, &read_size);
+  if (ret != AUDIOLIB_ECODE_OK && ret != AUDIOLIB_ECODE_INSUFFICIENT_BUFFER_AREA) {
+    Serial.println("Error err = " + String(ret));
+    theAudio->stopRecorder();
+    exit(1);
   }
   
-}
-
-void loop()
-{
-  static float* data;
-  static bool bNG = false;
-  int8_t rcvid;
-  int ret = MP.Recv(&rcvid, &data, subcore);
-  if (ret < 0) {
+  uint32_t current_time = millis();
+  uint32_t duration = current_time - last_time;
+  if (read_size < FFT_LEN || duration < buffering_time/2) {
+    delay(buffering_time/2);
     return;
+  } else {
+    last_time = current_time;   
   }
 
-#ifdef DNNENABLE
-  DNNVariable input(buffer_sample/2);
+  FFT.put((q15_t*)buff, FFT_LEN);
+  FFT.get(pDst, 0);
+
   float *dnnbuf = input.data();
-  if (rcvid == ACK_FFT) {
-    // Serial.println("FFT Receive Success!");
-    for (int i = 0; i < buffer_sample/2; ++i) {
-      dnnbuf[i] = data[i];
-    }
+  for (int i = 0; i < FFT_LEN/2; ++i) {
+    pDst[i] /= maxSpectrum;
+    dnnbuf[i] = pDst[i];
   }
-#endif
 
-#ifdef DNNENABLE
   dnnrt.inputVariable(input, 0);
-  dnnrt.forward();
+  dnnrt.forward(); 
   DNNVariable output = dnnrt.outputVariable(0);
-
   int index = output.maxIndex();
-  float value = output[index];
-  //Serial.println("index: " + String(index));
-  //Serial.println("Frequency: " + String(labels[index]));
-  //Serial.println("Realiability: " + String(value));
-#endif
+  Serial.println("Frequency: " + String(labels[index]));
+  Serial.println("Probability: " + String(output[index]));
 
-#ifdef HAVE_LCD
-  showSpectrum(data, index, value);
-#endif
-
+  int8_t sndid;
+  float data[FFT_LEN/2];
+  if (mutex.Trylock() != 0) return;
+  sndid = 100;
+  memcpy(data, pDst, sizeof(float)*FFT_LEN/2);
+  struct Spectrum sp_data;
+  sp_data.data = (void*)data;
+  sp_data.index = index;
+  sp_data.value = output[index];
+  ret = MP.Send(sndid, &sp_data, subcore);
+  if (ret < 0) Serial.println("MP.Send Error");
+  mutex.Unlock();
 }

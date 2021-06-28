@@ -1,6 +1,5 @@
 [Engine]
 SDeepEngineType=NNabla
-RNNTrainingMode=0
 [Network_Global]
 NumLayer=6
 NumLink=5
@@ -21,7 +20,9 @@ Property_3_Name=Generator
 Property_3_Value=None
 Property_4_Name=GeneratorMultiplier
 Property_4_Value=1.0
-NumProperty=5
+Property_5_Name=Order
+Property_5_Value=-1
+NumProperty=6
 [Layer_1]
 ID=1
 Type=Affine
@@ -183,6 +184,7 @@ SaveBest=1
 BatchSize=64
 TypeConfig=Float
 MonitorInterval=10
+AutoEvaluation=0
 NumOptimizer=1
 NumMonitor=2
 NumExecutor=1
@@ -229,9 +231,6 @@ Executor_DatasetName=Validation
 NumEvaluations=1
 RepeatEvaluationType=0
 NeedBackPropagation=0
-[Script]
-Enabled=0
-NumScript=0
 [StructureSearch]
 Enabled=0
 Method=Random
@@ -242,3 +241,7 @@ CostMultiplyAdd_Min=-1
 CostMultiplyAdd_Max=-1
 EarlyStopping=0
 TimeLimit=0
+[OutOfCoreTraining]
+Enabled=0
+GPUMemorySize=0
+WindowSize=0
