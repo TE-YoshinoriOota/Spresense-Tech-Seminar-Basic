@@ -28,7 +28,7 @@ bool bStart = false;
 File myFile;
 
 void changeState() {    // interrupt handler
-  bStart = ~bStart;
+  bStart = bStart ? false : true;
 }
 
 void player_end() {
@@ -56,7 +56,7 @@ void player_start() {
   bPlaying = true;
 }
 
-int intPin = 0;
+int intPin = 4;
 void setup() {
   int err;
   Serial.begin(115200);
