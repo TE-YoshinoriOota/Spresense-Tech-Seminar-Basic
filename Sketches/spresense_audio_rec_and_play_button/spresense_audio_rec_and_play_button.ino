@@ -33,7 +33,7 @@ static char filename[16] = {0};
 File myFile;
 
 void changeState() {    // interrupt handler
-  bRecStart = ~bRecStart;
+  bRecStart = bRecStart ? false : true;
 }
 
 
@@ -125,7 +125,7 @@ void player_begin() {
 }
 
 
-int intPin = 0;
+int intPin = 4;
 void setup() {
   int err;
   Serial.begin(115200);
