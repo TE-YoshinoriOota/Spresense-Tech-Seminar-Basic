@@ -71,7 +71,7 @@ void recorder_begin() {
   Serial.println("Start recording");
 }
 
-int intPin = 0;
+int intPin = 4;
 void setup() {
   Serial.begin(115200);
   pinMode(intPin, INPUT_PULLUP);
