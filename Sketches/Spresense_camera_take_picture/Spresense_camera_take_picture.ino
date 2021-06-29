@@ -51,7 +51,7 @@ void CamCB(CamImage img){
   }
 }
 
-int intPin = 0;
+int intPin = 4;
 void setup() {
   pinMode(LED0, OUTPUT);
   pinMode(intPin, INPUT_PULLUP);
