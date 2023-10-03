@@ -43,7 +43,7 @@ void CamCB(CamImage img){
     img.convertPixFormat(CAM_IMAGE_PIX_FMT_RGB565);
     tft.drawRGBBitmap(0, 0, (uint16_t *)img.getImgBuff(), 320, 240);
     if (bButtonPressed) {
-      tft.setTextSize(2);
+      tft.setTextSize(2); 
       tft.setCursor(100, 200);
       tft.setTextColor(ILI9341_RED);
       tft.println("Shooting");
@@ -74,7 +74,7 @@ void loop() {
   if (!bButtonPressed) return;
   Serial.println("button pressed");
   digitalWrite(LED0, HIGH);
-  theCamera.startStreaming(false, CamCB);
+  theCamera.startStreaming(false, CamCB);  // streaming off
   CamImage img = theCamera.takePicture();
   if (img.isAvailable()) {
       char filename[16] = {0};
@@ -85,6 +85,6 @@ void loop() {
       ++gCounter;
   }
   bButtonPressed = false;
-  theCamera.startStreaming(true, CamCB);
+  theCamera.startStreaming(true, CamCB);  // streaming on
   digitalWrite(LED0, LOW);
 }
